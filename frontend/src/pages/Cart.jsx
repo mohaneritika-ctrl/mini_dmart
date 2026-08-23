@@ -65,7 +65,7 @@ export const Cart = () => {
           <Link to="/products" className="btn btn-primary">Start Shopping</Link>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem', alignItems: 'start' }}>
+        <div className="cart-layout">
           {/* Cart items list */}
           <div className="table-container">
             <table className="data-table">

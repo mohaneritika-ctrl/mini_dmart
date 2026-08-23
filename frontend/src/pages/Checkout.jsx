@@ -58,7 +58,7 @@ export const Checkout = () => {
 
       <Alert type="error" message={error} onClose={() => setError('')} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '2rem', alignItems: 'start' }}>
+      <div className="checkout-layout">
         <div className="card">
           <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1.25rem' }}>1. Choose Fulfillment Method</h2>
           
