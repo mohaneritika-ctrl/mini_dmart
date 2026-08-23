@@ -2,12 +2,16 @@ package com.dmart.config;
 
 import com.dmart.entity.Category;
 import com.dmart.entity.Product;
+import com.dmart.entity.Role;
+import com.dmart.entity.User;
 import com.dmart.repository.CategoryRepository;
 import com.dmart.repository.ProductRepository;
+import com.dmart.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,11 +27,18 @@ public class DataInitializer implements CommandLineRunner {
 
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional
     public void run(String... args) {
-        log.info("Checking and seeding grocery categories and products...");
+        log.info("Checking and seeding users, grocery categories, and products...");
+
+        // 0. Seed Users
+        seedUserIfNotFound("customer@dmart.com", "Customer User", "customer123", Role.CUSTOMER, "9876543210");
+        seedUserIfNotFound("staff@dmart.com", "Staff User", "staff123", Role.STAFF, "9876543211");
+        seedUserIfNotFound("admin@dmart.com", "Admin User", "admin123", Role.ADMIN, "9876543212");
 
         // 1. Seed Categories
         Map<String, Category> categories = new HashMap<>();
@@ -138,5 +149,30 @@ public class DataInitializer implements CommandLineRunner {
         }
 
         log.info("Grocery products seeding completed successfully.");
+    }
+
+    private void seedUserIfNotFound(String email, String name, String rawPassword, Role role, String phone) {
+        userRepository.findByEmail(email).ifPresentOrElse(
+                existingUser -> {
+                    existingUser.setPassword(passwordEncoder.encode(rawPassword));
+                    existingUser.setActive(true);
+                    existingUser.setName(name);
+                    userRepository.save(existingUser);
+                    log.info("Updated password for default user: {}", email);
+                },
+                () -> {
+                    userRepository.save(
+                            User.builder()
+                                    .email(email)
+                                    .name(name)
+                                    .password(passwordEncoder.encode(rawPassword))
+                                    .role(role)
+                                    .phone(phone)
+                                    .active(true)
+                                    .build()
+                    );
+                    log.info("Seeded default user: {}", email);
+                }
+        );
     }
 }
