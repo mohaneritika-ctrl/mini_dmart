@@ -1,0 +1,38 @@
+services:
+  # Spring Boot Backend Web Service
+  - type: web
+    name: mini-dmart-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    region: singapore
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: DB_URL
+        sync: false # Enter your Neon JDBC connection URL
+      - key: DB_USERNAME
+        sync: false # Enter your Neon username
+      - key: DB_PASSWORD
+        sync: false # Enter your Neon password
+      - key: JWT_SECRET
+        value: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970337336763979244226452948404D6351
+      - key: JWT_EXPIRATION
+        value: 86400000
+
+  # React + Vite Frontend Static Site
+  - type: web
+    name: mini-dmart-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    plan: free
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false # Enter your Render backend URL (e.g. https://mini-dmart-backend.onrender.com/api)
