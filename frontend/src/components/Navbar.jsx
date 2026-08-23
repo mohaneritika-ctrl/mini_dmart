@@ -73,6 +73,11 @@ export const Navbar = () => {
                       🔄 My Returns
                     </Link>
                   </li>
+                  <li>
+                    <Link to="/profile" className={`nav-link ${isActive('/profile')}`} onClick={handleLinkClick}>
+                      👤 My Account
+                    </Link>
+                  </li>
                 </>
               )}
             </>
@@ -82,7 +87,12 @@ export const Navbar = () => {
             <>
               <li>
                 <Link to="/staff" className={`nav-link ${isActive('/staff')}`} onClick={handleLinkClick}>
-                  📋 Staff Dashboard
+                  📋 Orders & Processing
+                </Link>
+              </li>
+              <li>
+                <Link to="/staff/profile" className={`nav-link ${isActive('/staff/profile')}`} onClick={handleLinkClick}>
+                  👤 Staff Profile
                 </Link>
               </li>
             </>
@@ -92,7 +102,12 @@ export const Navbar = () => {
             <>
               <li>
                 <Link to="/admin" className={`nav-link ${isActive('/admin')}`} onClick={handleLinkClick}>
-                  📊 Dashboard
+                  📊 Overview
+                </Link>
+              </li>
+              <li>
+                <Link to="/admin/users" className={`nav-link ${isActive('/admin/users')}`} onClick={handleLinkClick}>
+                  👥 Users & Logins
                 </Link>
               </li>
               <li>
@@ -107,7 +122,7 @@ export const Navbar = () => {
               </li>
               <li>
                 <Link to="/admin/inventory" className={`nav-link ${isActive('/admin/inventory')}`} onClick={handleLinkClick}>
-                  📦 Inventory
+                  📦 Stock
                 </Link>
               </li>
               <li>
@@ -125,8 +140,10 @@ export const Navbar = () => {
 
           {isAuthenticated ? (
             <li style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto', flexWrap: 'wrap' }}>
-              <span className="user-badge">{user.role}</span>
-              <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-main)' }}>{user.name}</span>
+              <Link to="/profile" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} onClick={handleLinkClick}>
+                <span className="user-badge">{user.role}</span>
+                <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-main)' }}>{user.name}</span>
+              </Link>
               <button onClick={handleLogout} className="btn btn-outline btn-sm" style={{ color: 'var(--danger)', borderColor: 'rgba(239, 68, 68, 0.3)' }}>
                 Logout
               </button>

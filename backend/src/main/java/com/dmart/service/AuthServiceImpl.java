@@ -9,6 +9,8 @@ import com.dmart.exception.DuplicateEmailException;
 import com.dmart.repository.UserRepository;
 import com.dmart.security.CustomUserDetailsService;
 import com.dmart.security.JwtService;
+import com.dmart.entity.AuditLog;
+import com.dmart.repository.AuditLogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -18,11 +20,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
+    private final AuditLogRepository auditLogRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
@@ -44,9 +49,23 @@ public class AuthServiceImpl implements AuthService {
                 .phone(request.getPhone() != null ? request.getPhone().trim() : null)
                 .role(Role.CUSTOMER)
                 .active(true)
+                .lastLoginAt(LocalDateTime.now())
                 .build();
 
         User savedUser = userRepository.save(user);
+
+        // Audit registration
+        try {
+            auditLogRepository.save(
+                    AuditLog.builder()
+                            .user(savedUser)
+                            .action("USER_REGISTER")
+                            .entityType("USER")
+                            .entityId(savedUser.getId())
+                            .description("New customer registered: " + savedUser.getEmail())
+                            .build()
+            );
+        } catch (Exception ignored) {}
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(savedUser.getEmail());
         String jwtToken = jwtService.generateToken(userDetails, savedUser.getId(), savedUser.getRole());
@@ -56,12 +75,14 @@ public class AuthServiceImpl implements AuthService {
                 .userId(savedUser.getId())
                 .name(savedUser.getName())
                 .email(savedUser.getEmail())
+                .phone(savedUser.getPhone())
                 .role(savedUser.getRole())
+                .lastLoginAt(savedUser.getLastLoginAt())
                 .build();
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         String normalizedEmail = request.getEmail().trim().toLowerCase();
 
@@ -79,6 +100,22 @@ public class AuthServiceImpl implements AuthService {
             throw new BadCredentialsException("User account is inactive");
         }
 
+        user.setLastLoginAt(LocalDateTime.now());
+        userRepository.save(user);
+
+        // Audit log login event
+        try {
+            auditLogRepository.save(
+                    AuditLog.builder()
+                            .user(user)
+                            .action("USER_LOGIN")
+                            .entityType("USER")
+                            .entityId(user.getId())
+                            .description(String.format("User %s (%s) signed in successfully.", user.getName(), user.getRole()))
+                            .build()
+            );
+        } catch (Exception ignored) {}
+
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
         String jwtToken = jwtService.generateToken(userDetails, user.getId(), user.getRole());
 
@@ -87,7 +124,9 @@ public class AuthServiceImpl implements AuthService {
                 .userId(user.getId())
                 .name(user.getName())
                 .email(user.getEmail())
+                .phone(user.getPhone())
                 .role(user.getRole())
+                .lastLoginAt(user.getLastLoginAt())
                 .build();
     }
 }

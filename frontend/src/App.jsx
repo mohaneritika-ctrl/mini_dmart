@@ -24,6 +24,8 @@ import { AdminProducts } from './pages/AdminProducts';
 import { AdminInventory } from './pages/AdminInventory';
 import { AdminOrders } from './pages/AdminOrders';
 import { AdminReturns } from './pages/AdminReturns';
+import { AdminUsers } from './pages/AdminUsers';
+import { StaffProfile } from './pages/StaffProfile';
 
 export const App = () => {
   return (
@@ -93,6 +95,14 @@ export const App = () => {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/staff/profile"
+                  element={
+                    <ProtectedRoute allowedRoles={['STAFF', 'ADMIN']}>
+                      <StaffProfile />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* Protected Admin Routes */}
                 <Route
@@ -100,6 +110,14 @@ export const App = () => {
                   element={
                     <ProtectedRoute allowedRoles={['ADMIN']}>
                       <AdminDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/users"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN']}>
+                      <AdminUsers />
                     </ProtectedRoute>
                   }
                 />
@@ -140,6 +158,16 @@ export const App = () => {
                   element={
                     <ProtectedRoute allowedRoles={['ADMIN']}>
                       <AdminReturns />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Profile Route for all authenticated users */}
+                <Route
+                  path="/profile"
+                  element={
+                    <ProtectedRoute allowedRoles={['CUSTOMER', 'STAFF', 'ADMIN']}>
+                      <StaffProfile />
                     </ProtectedRoute>
                   }
                 />
