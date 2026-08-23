@@ -40,17 +40,18 @@ export const Login = () => {
 
       <Alert type="error" message={error} onClose={() => setError('')} />
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} autoComplete="off">
         <div className="form-group">
           <label className="form-label">Email Address</label>
           <input
-            type="email"
+            type="text"
             name="email"
             required
+            autoComplete="off"
             className="form-control"
             value={formData.email}
             onChange={handleChange}
-            placeholder="you@example.com"
+            placeholder="Enter your registered email"
           />
         </div>
 
@@ -60,10 +61,11 @@ export const Login = () => {
             type="password"
             name="password"
             required
+            autoComplete="new-password"
             className="form-control"
             value={formData.password}
             onChange={handleChange}
-            placeholder="••••••••"
+            placeholder="Enter your password"
           />
         </div>
 

@@ -30,33 +30,40 @@ export const Register = () => {
 
   return (
     <div className="card form-card">
-      <h2 style={{ textAlign: 'center', marginBottom: '1.5rem', fontWeight: 800 }}>Create Customer Account</h2>
+      <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
+        <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>✨</div>
+        <h2 style={{ fontWeight: 900, fontSize: '1.65rem', color: 'var(--text-main)' }}>Create Account</h2>
+        <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Join Mini D-Mart for fresh grocery deliveries</p>
+      </div>
+
       <Alert type="error" message={error} onClose={() => setError('')} />
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} autoComplete="off">
         <div className="form-group">
           <label className="form-label">Full Name</label>
           <input
             type="text"
             name="name"
             required
+            autoComplete="off"
             className="form-control"
             value={formData.name}
             onChange={handleChange}
-            placeholder="John Doe"
+            placeholder="Your Name"
           />
         </div>
 
         <div className="form-group">
           <label className="form-label">Email Address</label>
           <input
-            type="email"
+            type="text"
             name="email"
             required
+            autoComplete="off"
             className="form-control"
             value={formData.email}
             onChange={handleChange}
-            placeholder="john@example.com"
+            placeholder="name@example.com"
           />
         </div>
 
@@ -67,6 +74,7 @@ export const Register = () => {
             name="password"
             required
             minLength={6}
+            autoComplete="new-password"
             className="form-control"
             value={formData.password}
             onChange={handleChange}
@@ -75,10 +83,11 @@ export const Register = () => {
         </div>
 
         <div className="form-group">
-          <label className="form-label">Phone Number</label>
+          <label className="form-label">Phone Number (Optional)</label>
           <input
             type="tel"
             name="phone"
+            autoComplete="off"
             className="form-control"
             value={formData.phone}
             onChange={handleChange}
@@ -86,13 +95,16 @@ export const Register = () => {
           />
         </div>
 
-        <button type="submit" disabled={loading} className="btn btn-primary btn-block">
+        <button type="submit" disabled={loading} className="btn btn-primary btn-block btn-lg" style={{ marginTop: '0.5rem' }}>
           {loading ? 'Creating Account...' : 'Register'}
         </button>
       </form>
 
-      <p style={{ textAlign: 'center', marginTop: '1.25rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-        Already have an account? <Link to="/login" style={{ color: 'var(--primary)', fontWeight: 600 }}>Login here</Link>
+      <p style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+        Already have an account?{' '}
+        <Link to="/login" style={{ color: 'var(--primary)', fontWeight: 800 }}>
+          Sign in here
+        </Link>
       </p>
     </div>
   );
