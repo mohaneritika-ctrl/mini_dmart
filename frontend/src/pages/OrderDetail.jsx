@@ -1,8 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { orderService } from '../services/orderService';
 import { returnService } from '../services/returnService';
 import { Alert } from '../components/Alert';
+
+const DELIVERY_STEPS = [
+  { status: 'PLACED', label: 'Order Placed', icon: '📝', desc: 'Order received & verified' },
+  { status: 'CONFIRMED', label: 'Confirmed', icon: '👨‍🍳', desc: 'Store preparing groceries' },
+  { status: 'PACKED', label: 'Packed & Ready', icon: '📦', desc: 'Sealed with care' },
+  { status: 'OUT_FOR_DELIVERY', label: 'Out for Delivery', icon: '🛵', desc: 'Partner on the way' },
+  { status: 'COMPLETED', label: 'Delivered', icon: '🎉', desc: 'Handed over at doorstep' }
+];
+
+const PICKUP_STEPS = [
+  { status: 'PLACED', label: 'Order Placed', icon: '📝', desc: 'Order received & verified' },
+  { status: 'CONFIRMED', label: 'Confirmed', icon: '🏪', desc: 'Store preparing items' },
+  { status: 'READY_FOR_PICKUP', label: 'Ready for Pickup', icon: '📦', desc: 'Waiting at store counter' },
+  { status: 'COMPLETED', label: 'Picked Up', icon: '🎉', desc: 'Order fulfilled' }
+];
 
 export const OrderDetail = () => {
   const { id } = useParams();
@@ -12,6 +27,7 @@ export const OrderDetail = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(location.state?.justPlaced ? 'Order placed successfully! Thank you for shopping with Mini D-Mart.' : '');
   const [cancelling, setCancelling] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState(new Date());
 
   // Return / Exchange modal state
   const [showReturnModal, setShowReturnModal] = useState(false);
@@ -22,21 +38,34 @@ export const OrderDetail = () => {
   const [returnNote, setReturnNote] = useState('');
   const [submittingReturn, setSubmittingReturn] = useState(false);
 
-  const fetchOrder = async () => {
+  const fetchOrder = async (isBackground = false) => {
     try {
-      setLoading(true);
+      if (!isBackground) setLoading(true);
       const data = await orderService.getMyOrderById(id);
       setOrder(data);
+      setLastRefreshed(new Date());
     } catch (err) {
-      setError(err.message || 'Failed to load order details.');
+      if (!isBackground) setError(err.message || 'Failed to load order details.');
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchOrder();
   }, [id]);
+
+  // Live Auto-Refresh Polling every 6 seconds while order is active
+  useEffect(() => {
+    if (!order) return;
+    if (order.orderStatus === 'COMPLETED' || order.orderStatus === 'CANCELLED') return;
+
+    const interval = setInterval(() => {
+      fetchOrder(true);
+    }, 6000);
+
+    return () => clearInterval(interval);
+  }, [order?.orderStatus, id]);
 
   const handleCancelOrder = async () => {
     if (!window.confirm('Are you sure you want to cancel this order? Stock will be restored to store inventory.')) {
@@ -89,13 +118,34 @@ export const OrderDetail = () => {
     }
   };
 
-  if (loading) return <div style={{ textAlign: 'center', padding: '3rem' }}>Loading order details...</div>;
-  if (!order) return <div style={{ textAlign: 'center', padding: '3rem' }}>Order not found.</div>;
+  if (loading) return <div style={{ textAlign: 'center', padding: '4rem' }}>Loading order details...</div>;
+  if (!order) return <div style={{ textAlign: 'center', padding: '4rem' }}>Order not found.</div>;
 
   const isCancellable = order.orderStatus === 'PLACED' || order.orderStatus === 'CONFIRMED';
-  
-  // Return/Exchange eligibility
   const isDelivered = order.orderStatus === 'COMPLETED';
+  const isCancelled = order.orderStatus === 'CANCELLED';
+  const isDelivery = order.orderType === 'DELIVERY';
+
+  const steps = isDelivery ? DELIVERY_STEPS : PICKUP_STEPS;
+
+  // Compute active step index
+  const getStepIndex = (status) => {
+    switch (status) {
+      case 'PLACED': return 0;
+      case 'CONFIRMED':
+      case 'PREPARING': return 1;
+      case 'PACKED':
+      case 'READY_FOR_PICKUP': return isDelivery ? 2 : 2;
+      case 'OUT_FOR_DELIVERY': return 3;
+      case 'COMPLETED': return steps.length - 1;
+      default: return 0;
+    }
+  };
+
+  const currentStepIdx = isCancelled ? -1 : getStepIndex(order.orderStatus);
+  const progressPercent = isCancelled ? 0 : Math.min(100, Math.round((currentStepIdx / (steps.length - 1)) * 100));
+
+  // Return/Exchange eligibility (7 days from delivery)
   const orderDate = new Date(order.createdAt);
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -103,49 +153,150 @@ export const OrderDetail = () => {
   const isReturnEligible = isDelivered && isWithin7Days;
 
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '950px', margin: '0 auto' }}>
       <div className="page-header">
-        <h1 className="page-title">Order #{order.id}</h1>
-        <Link to="/orders" style={{ color: 'var(--primary)', fontWeight: 600 }}>&larr; Back to Orders</Link>
+        <div>
+          <h1 className="page-title">Order #{order.id}</h1>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+            Placed on {new Date(order.createdAt).toLocaleString()}
+          </p>
+        </div>
+        <Link to="/orders" className="btn btn-outline btn-sm">
+          &larr; Back to My Orders
+        </Link>
       </div>
 
       <Alert type="success" message={success} onClose={() => setSuccess('')} />
       <Alert type="error" message={error} onClose={() => setError('')} />
 
+      {/* LIVE ORDER TRACKER CARD */}
+      <div className="live-tracker-card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span className="live-badge-pulse">
+              <span className="pulse-circle"></span>
+              {isCancelled ? 'ORDER CANCELLED' : isDelivered ? 'ORDER DELIVERED' : 'LIVE TRACKING ACTIVE'}
+            </span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              Updated {lastRefreshed.toLocaleTimeString()}
+            </span>
+          </div>
+
+          <span className={`badge badge-${order.orderStatus}`}>
+            {order.orderStatus.replace(/_/g, ' ')}
+          </span>
+        </div>
+
+        {/* Visual Stepper */}
+        {!isCancelled ? (
+          <>
+            <div className="tracking-steps-container">
+              <div
+                className="tracking-progress-bar"
+                style={{ width: `${progressPercent}%` }}
+              ></div>
+
+              {steps.map((step, idx) => {
+                const isCompleted = idx < currentStepIdx || isDelivered;
+                const isActive = idx === currentStepIdx && !isDelivered;
+
+                return (
+                  <div
+                    key={step.status}
+                    className={`tracking-step-item ${isCompleted ? 'completed' : ''} ${isActive ? 'active' : ''}`}
+                  >
+                    <div className="tracking-step-icon">
+                      {isCompleted ? '✓' : step.icon}
+                    </div>
+                    <div className="tracking-step-title">{step.label}</div>
+                    <div className="tracking-step-desc">{step.desc}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Real-time ETA & Status Banner */}
+            <div className="delivery-eta-box">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ fontSize: '2rem' }}>
+                  {isDelivered ? '🎉' : isDelivery ? '🛵' : '🏬'}
+                </div>
+                <div>
+                  <h4 style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '1rem', marginBottom: '0.2rem' }}>
+                    {isDelivered
+                      ? 'Package Delivered Successfully'
+                      : isDelivery
+                        ? order.orderStatus === 'OUT_FOR_DELIVERY'
+                          ? 'Delivery Partner is on the way!'
+                          : 'Preparing your grocery delivery'
+                        : order.orderStatus === 'READY_FOR_PICKUP'
+                          ? 'Your package is ready at the store counter!'
+                          : 'Store team is packing your groceries'}
+                  </h4>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    {isDelivered
+                      ? 'Thank you for choosing Mini D-Mart! Rate your experience.'
+                      : isDelivery
+                        ? `Estimated Arrival: 15-25 Mins to ${order.deliveryAddress || 'your address'}`
+                        : `Pickup Window: ${order.pickupTimeSlot || 'Available Today'}`}
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => fetchOrder(false)}
+                  className="btn btn-outline btn-sm"
+                  style={{ fontSize: '0.8rem' }}
+                >
+                  🔄 Refresh Status
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div style={{ padding: '2rem 1rem', textAlign: 'center', background: '#fee2e2', borderRadius: 'var(--radius)', marginTop: '1.25rem', color: '#991b1b' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🛑</div>
+            <h3 style={{ fontWeight: 800 }}>Order Cancelled</h3>
+            <p style={{ fontSize: '0.85rem' }}>This order was cancelled. Any reserved stock has been returned to inventory.</p>
+          </div>
+        )}
+      </div>
+
+      {/* ORDER SUMMARY & DETAILS */}
       <div className="card" style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '1rem', marginBottom: '1.25rem' }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1.25rem' }}>Order Details</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem', borderBottom: '1px solid var(--border)', paddingBottom: '1.25rem', marginBottom: '1.25rem' }}>
           <div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Order Placed:</div>
-            <div style={{ fontWeight: 600 }}>{new Date(order.createdAt).toLocaleString()}</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Fulfillment Method</div>
+            <div style={{ fontWeight: 800, color: 'var(--text-main)', marginTop: '0.2rem' }}>
+              {isDelivery ? '🚚 Home Delivery' : '🏬 Store Pickup'}
+            </div>
           </div>
+
           <div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Status:</div>
-            <span className={`badge badge-${order.orderStatus}`}>{order.orderStatus}</span>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
+              {isDelivery ? 'Delivery Location' : 'Pickup Slot'}
+            </div>
+            <div style={{ fontWeight: 600, color: 'var(--text-main)', marginTop: '0.2rem', fontSize: '0.9rem' }}>
+              {isDelivery ? (order.deliveryAddress || 'Standard Address') : (order.pickupTimeSlot || 'Store Counter')}
+            </div>
           </div>
+
           <div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Fulfillment:</div>
-            <div style={{ fontWeight: 600 }}>{order.orderType}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Total Amount:</div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary-dark)' }}>₹{Number(order.totalAmount).toFixed(2)}</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Total Amount Paid</div>
+            <div style={{ fontSize: '1.35rem', fontWeight: 900, color: 'var(--primary-dark)', marginTop: '0.2rem' }}>
+              ₹{Number(order.totalAmount).toFixed(2)}
+            </div>
           </div>
         </div>
 
-        {order.orderType === 'PICKUP' && order.pickupTimeSlot && (
-          <div style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>
-            <strong>Pickup Slot: </strong> {order.pickupTimeSlot}
-          </div>
-        )}
-
-        {order.orderType === 'DELIVERY' && order.deliveryAddress && (
-          <div style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>
-            <strong>Delivery Address: </strong> {order.deliveryAddress}
-          </div>
-        )}
-
         {isCancellable && (
-          <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border)', paddingTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              Need to make changes? You can cancel your order while it is still being confirmed.
+            </span>
             <button
               onClick={handleCancelOrder}
               disabled={cancelling}
@@ -155,27 +306,16 @@ export const OrderDetail = () => {
             </button>
           </div>
         )}
-
-        {!isDelivered && (
-          <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            ℹ️ Return/Exchange is available only after an order is marked <strong>COMPLETED</strong> (Delivered).
-          </div>
-        )}
-        {isDelivered && !isWithin7Days && (
-          <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-            ⚠️ The 7-day return and exchange window for this order has expired.
-          </div>
-        )}
       </div>
 
       {/* Return/Exchange Modal */}
       {showReturnModal && selectedItem && (
-        <div className="card" style={{ marginBottom: '2rem', border: '2px solid var(--primary)' }}>
+        <div className="card" style={{ marginBottom: '2rem', border: '2px solid var(--primary)', boxShadow: 'var(--shadow-md)' }}>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1rem' }}>
             Request {returnType} for {selectedItem.productName}
           </h2>
           <form onSubmit={handleSubmitReturn}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
               <div className="form-group">
                 <label className="form-label">Request Type</label>
                 <select
@@ -222,7 +362,7 @@ export const OrderDetail = () => {
               <textarea
                 className="form-control"
                 rows={2}
-                placeholder="Provide any specific details (e.g. seal broken, expired date)"
+                placeholder="Provide specific details (e.g., package seal open, wrong flavor)"
                 value={returnNote}
                 onChange={(e) => setReturnNote(e.target.value)}
               />
@@ -240,14 +380,14 @@ export const OrderDetail = () => {
         </div>
       )}
 
-      {/* Items table */}
-      <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1rem' }}>Purchased Items</h2>
+      {/* Purchased Items Table */}
+      <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1rem' }}>Items in this Order</h2>
       <div className="table-container">
         <table className="data-table">
           <thead>
             <tr>
               <th>Product</th>
-              <th>Unit Price (Snapshot)</th>
+              <th>Unit Price</th>
               <th>Quantity</th>
               <th>Subtotal</th>
               {isReturnEligible && <th>Return / Exchange</th>}
@@ -256,10 +396,10 @@ export const OrderDetail = () => {
           <tbody>
             {order.items?.map((item) => (
               <tr key={item.id}>
-                <td style={{ fontWeight: 700 }}>{item.productName}</td>
+                <td style={{ fontWeight: 800, color: 'var(--text-main)' }}>{item.productName}</td>
                 <td>₹{Number(item.unitPrice).toFixed(2)}</td>
-                <td>{item.quantity}</td>
-                <td style={{ fontWeight: 800 }}>₹{Number(item.subtotal).toFixed(2)}</td>
+                <td><span style={{ background: '#f1f5f9', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 700 }}>x{item.quantity}</span></td>
+                <td style={{ fontWeight: 900, color: '#065f46' }}>₹{Number(item.subtotal).toFixed(2)}</td>
                 {isReturnEligible && (
                   <td>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
