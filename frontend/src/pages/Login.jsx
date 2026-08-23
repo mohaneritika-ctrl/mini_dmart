@@ -14,11 +14,12 @@ export const Login = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const executeLogin = async (credentials) => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const user = await login(credentials);
+      const user = await login(formData);
       if (user.role === 'ADMIN') navigate('/admin');
       else if (user.role === 'STAFF') navigate('/staff');
       else navigate('/');
@@ -27,16 +28,6 @@ export const Login = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    await executeLogin(formData);
-  };
-
-  const handleQuickLogin = (email, password) => {
-    setFormData({ email, password });
-    executeLogin({ email, password });
   };
 
   return (
@@ -59,7 +50,7 @@ export const Login = () => {
             className="form-control"
             value={formData.email}
             onChange={handleChange}
-            placeholder="admin@dmart.com"
+            placeholder="you@example.com"
           />
         </div>
 
@@ -80,39 +71,6 @@ export const Login = () => {
           {loading ? 'Signing In...' : 'Sign In'}
         </button>
       </form>
-
-      {/* Quick Demo Logins */}
-      <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px dashed var(--border)' }}>
-        <p style={{ textAlign: 'center', fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.75rem' }}>
-          ⚡ 1-Click Quick Demo Login
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
-          <button
-            type="button"
-            className="btn btn-outline btn-sm"
-            onClick={() => handleQuickLogin('customer@dmart.com', 'customer123')}
-            style={{ fontSize: '0.75rem', padding: '0.4rem 0.2rem' }}
-          >
-            🛒 Customer
-          </button>
-          <button
-            type="button"
-            className="btn btn-outline btn-sm"
-            onClick={() => handleQuickLogin('staff@dmart.com', 'staff123')}
-            style={{ fontSize: '0.75rem', padding: '0.4rem 0.2rem' }}
-          >
-            🛡️ Staff
-          </button>
-          <button
-            type="button"
-            className="btn btn-outline btn-sm"
-            onClick={() => handleQuickLogin('admin@dmart.com', 'admin123')}
-            style={{ fontSize: '0.75rem', padding: '0.4rem 0.2rem' }}
-          >
-            👑 Admin
-          </button>
-        </div>
-      </div>
 
       <p style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
         Don't have an account?{' '}
